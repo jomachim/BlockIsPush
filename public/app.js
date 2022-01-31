@@ -88,7 +88,7 @@ async function loadLDTK() {
         .then(data => {
             let levels = data.levels
             if (currentLevel > levels.length - 1) {
-                currentLevel = levels.length - 1
+                currentLevel = 0
             }
             let level = data.levels[currentLevel].layerInstances[0]
             let lw = level.__cWid
@@ -99,6 +99,7 @@ async function loadLDTK() {
             let csv = data.levels[currentLevel].layerInstances[0].intGridCsv
             let i = 0
             grid = []
+            story = []
             for (let y = 0; y < lh; y++) {
                 grid[y] = new Array(lh)
                 for (let x = 0; x < lw; x++) {
@@ -451,9 +452,16 @@ function checkRules() {
             if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _WIN) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _WIN)) {
 
                 if (!winners.includes(tile) && alwaysPushables.filter((m) => ![_PUSH, _IS, _STOP].includes(m)).includes(tile)) {
-                    let tileName = constMap[tile].substring(1).toLowerCase()
-                    let unscoredTile = eval(constMap[tile].substring(1))
-                        // ERROR "PUSH is undefined at eval : attendu _PUSH..."
+                    let tileName
+                    let unscoredTile
+                    if (constMap[tile].charAt(0) == "_") {
+                        tileName = constMap[tile].substring(1).toLowerCase()
+                        unscoredTile = eval(constMap[tile].substring(1))
+                            // ERROR "PUSH is undefined at eval : attendu _PUSH..."
+                    } else {
+                        tileName = constMap[tile].toLowerCase()
+                        unscoredTile = eval(constMap[tile])
+                    }
                     if (!activeRules.includes(tileName + ' is win')) {
                         activeRules.push(tileName + ' is win')
                         winners.push(unscoredTile)
