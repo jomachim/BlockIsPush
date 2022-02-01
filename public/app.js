@@ -27,6 +27,12 @@ const _WIN = 10
 const _STOP = 12
 const DEAD = 14
 const _DEAD = 13
+const FLAG = 15
+const _FLAG = 16
+const _YA = 17
+const _HERO = 18
+const KEY = 19
+const _KEY = 20
 const UP = "up"
 const DOWN = "down"
 const LEFT = "left"
@@ -49,6 +55,12 @@ const constMap = {
     12: "_STOP",
     13: "_DEAD",
     14: "DEAD",
+    15: "FLAG",
+    16: "_FLAG",
+    17: "_YA",
+    18: "_HERO",
+    19: "KEY",
+    20: "_KEY",
     _: null
 }
 
@@ -131,7 +143,7 @@ function transpose(matrix) {
 }
 loadLDTK()
 let activeRules = []
-let alwaysPushables = [_WALL, _IS, _STOP, _ROCK, _HOLE, _PUSH, _WIN, HERO]
+let alwaysPushables = [_WALL, _IS, _STOP, _ROCK, _HOLE, _PUSH, _WIN, _HERO, _FLAG, _YA, FLAG, _KEY, KEY]
 let pushables = [...alwaysPushables]
 let stoppers = []
 let winners = []
@@ -153,7 +165,7 @@ class Hero {
         this.rx = 0
         this.ry = 0
         this.recurse = 0
-        this.maxPush = 4
+        this.maxPush = 5
     }
     update() {
         if (CoolDown.get('gameOver') || CoolDown.get('nextLevel')) return
@@ -226,14 +238,14 @@ class Hero {
         if (killers.includes(grid[x][y])) {
             story.push(JSON.parse(JSON.stringify(grid)));
             clearGrid(DEAD)
-            return
+            return 0
         }
         //test of wining
 
-        if (winners.includes(grid[x][y]) && !CoolDown.get('nextLevel')) {
+        if (winners.includes(grid[x][y]) && grid[x - dir.x][y - dir.y] == HERO && !CoolDown.get('nextLevel')) {
             clearGrid()
             new CoolDown("nextLevel", 60 * 4, nextLevel)
-            return
+            return 0
         }
 
         //if (grid[x][y] == 1) return stoppers.includes(WALL) ? false : 0
@@ -273,7 +285,7 @@ function transformGrid(a, b) {
 function drawGrid() {
     if (!grid) return
     heroes = []
-    if (frames % 12 == 0) {
+    if (frames % 8 == 0) {
         _offset++
         if (_offset > 3) { _offset = 0 }
     }
@@ -353,7 +365,36 @@ function drawGrid() {
                 mess = "DEAD"
                 img = { x: 3, y: 1, sx: 32, sy: 32 }
             }
-
+            if (tile == 15) {
+                c.fillStyle = '#ff0'
+                mess = "FLAG"
+                img = { x: 5, y: 1, sx: 32, sy: 32 }
+            }
+            if (tile == 16) {
+                c.fillStyle = '#dd0'
+                mess = "_FLAG"
+                img = { x: 6, y: 1, sx: 32, sy: 32 }
+            }
+            if (tile == 17) {
+                c.fillStyle = '#f28'
+                mess = "YA"
+                img = { x: 7, y: 1, sx: 32, sy: 32 }
+            }
+            if (tile == 18) {
+                c.fillStyle = '#f0f'
+                mess = "_HERO"
+                img = { x: 8, y: 0, sx: 32, sy: 32 }
+            }
+            if (tile == 19) {
+                c.fillStyle = '#f28'
+                mess = "KEY"
+                img = { x: 9, y: 1, sx: 32, sy: 32 }
+            }
+            if (tile == 20) {
+                c.fillStyle = '#f0f'
+                mess = "_KEY"
+                img = { x: 9, y: 0, sx: 32, sy: 32 }
+            }
             c.strokeStyle = c.fillStyle
 
             if (img) {
@@ -422,25 +463,42 @@ function checkRules() {
             if (!grid[x + 2]) continue
             if (!grid[x][y + 2]) continue
 
+            // ALL IS WIN
+            if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _WIN) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _WIN)) {
+                tile = grid[x][y]
+                if ([_FLAG, _WALL, _ROCK, _HERO, _HOLE, _DEAD, _KEY].includes(tile)) {
+                    let tileName = constMap[tile].substring(1).toLowerCase()
+                    let unscoredTile = eval(constMap[tile].substring(1))
+                        // ERROR "PUSH is undefined at eval : attendu _PUSH..."
 
+                    if (!winners.includes(unscoredTile) && !activeRules.includes(tileName + ' is win')) {
+                        activeRules.push(tileName + ' is win')
+                        winners.push(unscoredTile)
 
-            // ALL IS ALL
-            if ([WALL, ROCK, HOLE, DEAD, HERO].includes(tile)) {
-                if (grid[x + 1][y] == _IS && [WALL, ROCK, HOLE, DEAD, HERO].includes(grid[x + 2][y])) {
-                    let isWhat = constMap[grid[x + 2][y]]
-                    let tileName = constMap[tile]
+                        //console.log(tileName + " IS WIN")
+                    }
+                }
+            }
+
+            // ALL IS ALL (but !_IS !_WIN)
+            if ([_WALL, _ROCK, _HOLE, _DEAD, _HERO, _FLAG, _KEY].includes(tile)) {
+
+                if (grid[x + 1][y] == _IS && [_KEY, _WALL, _ROCK, _HOLE, _DEAD, _HERO, _FLAG].includes(grid[x + 2][y])) {
+                    let isWhat = constMap[grid[x + 2][y]].substring(1)
+                    let tileName = constMap[eval(constMap[tile])].substring(1) // turning _XXX to XXX
                     if (!activeRules.includes(tileName + ' is ' + isWhat) && tileName != isWhat) {
-                        activeRules.push(tileName + ' is ' + isWhat)
-                        transformGrid(tile, grid[x + 2][y])
+                        activeRules.push(tileName.toLowerCase() + ' is ' + isWhat.toLowerCase())
+                        transformGrid(eval(tileName), eval(isWhat))
                         console.log(tileName + ' is ' + isWhat)
                     }
 
-                } else if (grid[x][y + 1] == _IS && [WALL, ROCK, HOLE, DEAD, HERO].includes(grid[x][y + 2])) {
-                    let isWhat = constMap[grid[x][y + 2]]
-                    let tileName = constMap[tile]
+                }
+                if (grid[x][y + 1] == _IS && [_KEY, _WALL, _ROCK, _HOLE, _DEAD, _HERO, _FLAG].includes(grid[x][y + 2])) {
+                    let isWhat = constMap[grid[x][y + 2]].substring(1)
+                    let tileName = constMap[eval(constMap[tile])].substring(1) // turning _XXX to XXX
                     if (!activeRules.includes(tileName + ' is ' + isWhat) && tileName != isWhat) {
-                        activeRules.push(tileName + ' is ' + isWhat)
-                        transformGrid(tile, grid[x][y + 2])
+                        activeRules.push(tileName.toLowerCase() + ' is ' + isWhat.toLowerCase())
+                        transformGrid(eval(tileName), eval(isWhat))
                         console.log(tileName + ' is ' + isWhat)
                     }
 
@@ -448,28 +506,7 @@ function checkRules() {
             }
 
 
-            // ALL IS WIN
-            if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _WIN) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _WIN)) {
 
-                if (!winners.includes(tile) && alwaysPushables.filter((m) => ![_PUSH, _IS, _STOP].includes(m)).includes(tile)) {
-                    let tileName
-                    let unscoredTile
-                    if (constMap[tile].charAt(0) == "_") {
-                        tileName = constMap[tile].substring(1).toLowerCase()
-                        unscoredTile = eval(constMap[tile].substring(1))
-                            // ERROR "PUSH is undefined at eval : attendu _PUSH..."
-                    } else {
-                        tileName = constMap[tile].toLowerCase()
-                        unscoredTile = eval(constMap[tile])
-                    }
-                    if (!activeRules.includes(tileName + ' is win')) {
-                        activeRules.push(tileName + ' is win')
-                        winners.push(unscoredTile)
-
-                        //console.log(tileName + " IS WIN")
-                    }
-                }
-            } /**/
 
             // ALL IS DEATH
             tile = grid[x][y]
@@ -592,7 +629,7 @@ window.addEventListener('mousedown', function(e) {
             let x = Math.floor((e.pageX / ts))
             let y = Math.floor((e.pageY / ts))
             let val = grid[x][y]
-            if (val > 11) {
+            if (val > 20) {
                 val = 0
             } else { val++; }
             grid[x][y] = val
@@ -633,7 +670,7 @@ class CoolDown {
 
 function render(t = 0) {
     frames++
-
+    if (keys['KeyL'] == true) { nextLevel() }
     if (keys['KeyQ'] == true) {
         cds = []
             //story.push(JSON.parse(JSON.stringify(grid)));
@@ -679,3 +716,16 @@ function render(t = 0) {
 
 
 //let rules = [4, 3, 2] // rock is push
+function toCanvasCoords(pageX, pageY, scale) {
+    var rect = canvas.getBoundingClientRect();
+    let x = (pageX - rect.left) / scale;
+    let y = (pageY - rect.top) / scale;
+    return { x, y };
+}
+
+function toScreenCoords(x, y, scale) {
+    var rect = canvas.getBoundingClientRect();
+    let wx = x * scale + rect.left + scrollElement.scrollLeft;
+    let wy = y * scale + rect.top + scrollElement.scrollTop;
+    return { wx, wy };
+}
