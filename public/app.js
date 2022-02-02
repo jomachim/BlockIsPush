@@ -2,7 +2,7 @@ let canvas = vp
 let c = canvas.getContext('2d')
 
 let sprites = new Image()
-sprites.src = './assets/spritesheet.png'
+sprites.src = 'assets/spritesheet.png'
 
 let ts = 32
 let start = {
@@ -106,20 +106,20 @@ async function loadLDTK() {
     0 means "empty cell" and IntGrid values start at 1. 
     This array size is __cWid x __cHei cells.
     */
-    await fetch("./assets/maps.ldtk")
+    await fetch("assets/maps.ldtk")
         .then(response => response.json())
         .then(data => {
             let levels = data.levels
             if (currentLevel > levels.length - 1) {
                 currentLevel = 0
             }
-            let level = data.levels[currentLevel].layerInstances[0]
+            let level = data.levels[currentLevel].layerInstances[1]
             let lw = level.__cWid
             let lh = level.__cHei
             canvas.width = lw * ts
             canvas.height = lh * ts
             let gsize = level.__gridSize
-            let csv = data.levels[currentLevel].layerInstances[0].intGridCsv
+            let csv = data.levels[currentLevel].layerInstances[1].intGridCsv
             let i = 0
             grid = []
             story = []
