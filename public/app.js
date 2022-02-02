@@ -658,6 +658,13 @@ function checkRules() {
             new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
         }
     }
+
+    if (soulKeepers.length == 1 && gridHas(soulKeepers[0]) == 0) {
+        console.log('no one is left')
+        if (!CoolDown.get('gameOver')) {
+            new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
+        }
+    }
     if (!hasSoul) {
         if (!CoolDown.get('gameOver')) {
             new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
@@ -665,6 +672,7 @@ function checkRules() {
         let allKilled = 0
         for (i in soulKeepers) {
             if (gridHas(soulKeepers[i]) == 0) {
+                console.log(constMap(soulKeepers[i]), 'are dead')
                 allKilled++
             }
         }
