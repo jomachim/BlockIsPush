@@ -15,5 +15,12 @@ use keyboard :
   - <code>A</code> for LEFT
   - <code>D</code> for RIGHT
   - <code>Q</code> for REWIND
+debug/cheat mode :
+<code>L</code> for Next Level
+<code>LeftCrtl</code> + <code>mouse left button</code> on tile to cycle tile types
+<code>LeftCrtl</code> + <code>mouse left button</code> to set tile to empty
+
+Use Ldtk (level designer tool kit) editor to create/edit maps, which can be find at (https://ldtk.io/) 
+
     
     
