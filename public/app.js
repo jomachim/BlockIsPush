@@ -64,6 +64,17 @@ const constMap = {
     _: null
 }
 
+let activeRules = []
+let alwaysPushables = [_WALL, _IS, _STOP, _ROCK, _HOLE, _PUSH, _WIN, _HERO, _FLAG, _YA, FLAG, _KEY, KEY, _DEAD]
+let pushables = [...alwaysPushables]
+let stoppers = []
+let winners = []
+let heroes = []
+let soulKeepers = []
+let killers = []
+let story = []
+let keys = {}
+
 let grid = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
     [1, 11, HERO, 0, HERO, 0, 0, 0, 1, 0, 0, 1, ROCK, 0, 1],
@@ -142,22 +153,7 @@ function transpose(matrix) {
     return _grid;
 }
 loadLDTK()
-let activeRules = []
-let alwaysPushables = [_WALL, _IS, _STOP, _ROCK, _HOLE, _PUSH, _WIN, _HERO, _FLAG, _YA, FLAG, _KEY, KEY]
-let pushables = [...alwaysPushables]
-let stoppers = []
-let winners = []
-let heroes = []
-let killers = []
 
-
-
-
-
-
-
-let story = []
-let keys = {}
 class Hero {
     constructor(cx, cy) {
         this.cx = cx
@@ -235,14 +231,24 @@ class Hero {
             story.push(JSON.parse(JSON.stringify(grid)));
             return true
         }
-        if (killers.includes(grid[x][y])) {
+        if (killers.includes(grid[x][y]) && soulKeepers.includes(grid[x - dir.x][y - dir.y])) {
             story.push(JSON.parse(JSON.stringify(grid)));
-            clearGrid(DEAD)
-            return 0
+            if (gridHas(grid[x - dir.x][y - dir.y]) > 1) {
+                soulKeepers = []
+                grid[x - dir.x][y - dir.y] = 0
+
+                return 0
+            } else {
+                grid[x - dir.x][y - dir.y] = 0
+                if (!CoolDown.get('gameOver')) {
+                    new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
+                }
+                return 0
+            }
         }
         //test of wining
 
-        if (winners.includes(grid[x][y]) && grid[x - dir.x][y - dir.y] == HERO && !CoolDown.get('nextLevel')) {
+        if (winners.includes(grid[x][y]) && soulKeepers.includes(grid[x - dir.x][y - dir.y]) && !CoolDown.get('nextLevel')) {
             clearGrid()
             new CoolDown("nextLevel", 60 * 4, nextLevel)
             return 0
@@ -294,6 +300,11 @@ function drawGrid() {
             let tile = grid[x][y]
             let mess = null
             let img = null
+
+            if (soulKeepers.includes(tile)) {
+                heroes.push(new Hero(x, y))
+            }
+
             if (tile == 0) {
                 c.fillStyle = '#aaa'
 
@@ -338,7 +349,7 @@ function drawGrid() {
                 mess = "BOBO"
                 img = { x: 0, y: 0, sx: 32, sy: 32 }
 
-                heroes.push(new Hero(x, y))
+                //heroes.push(new Hero(x, y))
             }
             if (tile == 10) {
                 c.fillStyle = 'yellow'
@@ -444,7 +455,17 @@ function clearGrid(tile = _WIN) {
     }
 }
 
-
+function gridHas(_tile) {
+    let p = 0
+    for (let x = 0; x < grid.length; x++) {
+        for (let y = 0; y < grid.length; y++) {
+            if (grid[x][y] == _tile) {
+                p++
+            }
+        }
+    }
+    return p
+}
 
 function checkRules() {
     if (CoolDown.get('gameOver') || CoolDown.get('nextLevel')) return
@@ -453,15 +474,41 @@ function checkRules() {
     stoppers = []
     winners = []
     killers = []
+    soulKeepers = []
     let hasBobo = false
+    let hasSoul = false
     for (let x = 0; x < grid.length; x++) {
         for (let y = 0; y < grid.length; y++) {
             let tile = grid[x][y]
             if (grid[x][y] == HERO) {
                 hasBobo = true
             }
-            if (!grid[x + 2]) continue
-            if (!grid[x][y + 2]) continue
+            if (grid[x + 2] == undefined) continue
+            if (grid[x][y + 2] == undefined) continue
+
+
+            //BOBO IS YA
+            if (tile == _HERO) {
+                if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _YA) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _YA)) {
+                    hasSoul = true
+                    if (!activeRules.includes('BOBO IS YA')) {
+                        activeRules.push('BOBO IS YA')
+                        soulKeepers.push(HERO)
+                    }
+                }
+            }
+
+            // ALL IS YA
+            if ([_WALL, _FLAG, _KEY, _HOLE, _ROCK, _DEAD].includes(tile)) {
+                if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _YA) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _YA)) {
+
+                    if (gridHas(eval(constMap[tile].substring(1))) && !activeRules.includes(constMap[tile].substring(1) + ' IS YA')) {
+                        activeRules.push(constMap[tile].substring(1) + ' IS YA')
+                        soulKeepers.push(eval(constMap[tile].substring(1)))
+                        hasSoul = true
+                    }
+                }
+            }
 
             // ALL IS WIN
             if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _WIN) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _WIN)) {
@@ -475,15 +522,15 @@ function checkRules() {
                         activeRules.push(tileName + ' is win')
                         winners.push(unscoredTile)
 
-                        //console.log(tileName + " IS WIN")
+                        console.log(tileName + " IS WIN")
                     }
                 }
             }
 
             // ALL IS ALL (but !_IS !_WIN)
-            if ([_WALL, _ROCK, _HOLE, _DEAD, _HERO, _FLAG, _KEY].includes(tile)) {
+            if ([_WALL, _ROCK, _HOLE, _HERO, _FLAG, _KEY, _DEAD].includes(tile)) {
 
-                if (grid[x + 1][y] == _IS && [_KEY, _WALL, _ROCK, _HOLE, _DEAD, _HERO, _FLAG].includes(grid[x + 2][y])) {
+                if (grid[x + 1][y] == _IS && [_KEY, _WALL, _ROCK, _HOLE, _HERO, _FLAG].includes(grid[x + 2][y])) {
                     let isWhat = constMap[grid[x + 2][y]].substring(1)
                     let tileName = constMap[eval(constMap[tile])].substring(1) // turning _XXX to XXX
                     if (!activeRules.includes(tileName + ' is ' + isWhat) && tileName != isWhat) {
@@ -493,7 +540,7 @@ function checkRules() {
                     }
 
                 }
-                if (grid[x][y + 1] == _IS && [_KEY, _WALL, _ROCK, _HOLE, _DEAD, _HERO, _FLAG].includes(grid[x][y + 2])) {
+                if (grid[x][y + 1] == _IS && [_KEY, _WALL, _ROCK, _HOLE, _HERO, _FLAG].includes(grid[x][y + 2])) {
                     let isWhat = constMap[grid[x][y + 2]].substring(1)
                     let tileName = constMap[eval(constMap[tile])].substring(1) // turning _XXX to XXX
                     if (!activeRules.includes(tileName + ' is ' + isWhat) && tileName != isWhat) {
@@ -505,20 +552,33 @@ function checkRules() {
                 }
             }
 
+            // ALL IS PUSH
+            // ALL IS PUSH
+            if ([_WALL, _HOLE, _ROCK, _KEY, _FLAG, _DEAD].includes(tile)) {
+                if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _PUSH) ||
+                    (grid[x][y + 1] == _IS && grid[x][y + 2] == _PUSH)) {
+                    let tileName = constMap[eval(constMap[tile])].substring(1)
+                    if (!activeRules.includes(tileName.toLowerCase() + ' is push')) {
+                        activeRules.push(tileName.toLowerCase() + ' is push')
+                        if (!pushables.includes(eval(constMap[tile].substring(1)))) {
+                            pushables.push(eval(constMap[tile].substring(1)))
+                        }
+                    }
+                }
+            }
 
 
-
-            // ALL IS DEATH
+            // ALL IS DEATH 
             tile = grid[x][y]
-            if (!grid[x + 2]) continue
-            if (!grid[x][y + 2]) continue
+                //if (!grid[x + 2]) continue
+                //if (!grid[x][y + 2]) continue
             if ((grid[x + 1][y] == _IS && grid[x + 2][y] == _DEAD) || (grid[x][y + 1] == _IS && grid[x][y + 2] == _DEAD)) {
 
-                if (!killers.includes(tile) && ![null, ...alwaysPushables].includes(tile)) {
+                if (!killers.includes(constMap[tile].substring(1)) && [_HOLE, _WALL, _DEAD, _ROCK, _KEY, _FLAG, _HERO, ].includes(tile)) {
                     let tileName = constMap[tile].toLowerCase()
                     if (!activeRules.includes(tileName + ' is death')) {
-                        activeRules.push(tileName + ' is death')
-                        killers.push(tile)
+                        activeRules.push(tileName.substring(1) + ' is death')
+                        killers.push(eval(constMap[tile].substring(1)))
 
                         //console.log(tileName + " is death")
                     }
@@ -590,13 +650,32 @@ function checkRules() {
             }
         }
     }
-    if (hasBobo == false) {
-        if (!CoolDown.get('gameOver')) {
 
+    // CHECKING IF YA T IL TOUJOURS UN PILOTE DANS LA VION
+
+    if (soulKeepers.length == 0) { // hasBobo == false) { // || 
+        if (!CoolDown.get('gameOver')) {
             new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
-                //return
         }
     }
+    if (!hasSoul) {
+        if (!CoolDown.get('gameOver')) {
+            new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
+        }
+        let allKilled = 0
+        for (i in soulKeepers) {
+            if (gridHas(soulKeepers[i]) == 0) {
+                allKilled++
+            }
+        }
+        if (allKilled >= soulKeepers.length) {
+            if (!CoolDown.get('gameOver')) {
+                new CoolDown("gameOver", 180, () => { clearGrid(DEAD) })
+            }
+        }
+    }
+
+
 }
 let masterKeys = {}
 window.addEventListener('keydown', function(e) {
@@ -691,9 +770,9 @@ function render(t = 0) {
 
     c.save()
     c.fillStyle = "#333"
-    c.fillRect(0, 0, 800, 600)
+    c.fillRect(0, 0, canvas.width, canvas.height)
     c.restore()
-    checkRules()
+    checkRules() // reset all arrays ;)
     cds.forEach(cd => {
         cd.update(t)
     })
