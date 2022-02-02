@@ -19,7 +19,7 @@ use keyboard :
 debug/cheat mode :
 - <code>L</code> for Next Level
 - <code>LeftCrtl</code> + <code>mouse left button</code> on tile to cycle tile types
-- <code>LeftCrtl</code> + <code>mouse left button</code> to set tile to empty
+- <code>LeftCrtl</code> + <code>mouse others buttons</code> to set tile to empty
 
 Use Ldtk (level designer tool kit) editor to create/edit maps, which can be find at (https://ldtk.io/) 
 
